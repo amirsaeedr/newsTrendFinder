@@ -20,11 +20,11 @@ public class App
         SparkConf sparkConf = new SparkConf().setAppName("wordcount").setMaster("spark://master-node:7077").setJars(jars);
         JavaSparkContext sparkContext = new JavaSparkContext(sparkConf);
 //        new RankCalculator("PageRank", "spark://master-node:7077").calculate();
-        JavaRDD<String> textFile = sparkContext.textFile("hdfs://input.txt");
+        JavaRDD<String> textFile = sparkContext.textFile("/home/amirsaeed/input.txt");
         JavaPairRDD<String, Integer> counts = textFile
                 .flatMap(s -> Arrays.asList(s.split(" ")).iterator())
                 .mapToPair(word -> new Tuple2<>(word, 1))
                 .reduceByKey((a, b) -> a + b);
-        counts.saveAsTextFile("hdfs://output");
+        counts.saveAsTextFile("/home/amirsaeed/output");
     }
 }
