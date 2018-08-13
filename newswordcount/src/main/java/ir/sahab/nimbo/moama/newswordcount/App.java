@@ -16,7 +16,7 @@ public class App
 {
     public static void main( String[] args )
     {
-        String[] jars = {"/home/amirsaeed/newsTrendFinder/newswordcount/target/newswordcount 1.0-SNAPSHOT-jar-with-dependencies.jar"};
+        String[] jars = {"/home/amirsaeed/newstrendfinder/newswordcount/target/newswordcount-1.0-SNAPSHOT-jar-with-dependencies.jar"};
         SparkConf sparkConf = new SparkConf().setAppName("wordcount").setMaster("spark://master-node:7077").setJars(jars);
         JavaSparkContext sparkContext = new JavaSparkContext(sparkConf);
 //        new RankCalculator("PageRank", "spark://master-node:7077").calculate();
