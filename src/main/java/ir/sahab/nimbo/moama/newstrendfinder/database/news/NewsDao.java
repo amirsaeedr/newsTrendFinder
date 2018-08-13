@@ -2,7 +2,7 @@ package ir.sahab.nimbo.moama.newstrendfinder.database.news;
 
 public interface NewsDao {
 
-    boolean addNews(News news);
+    void put(News news);
 
 //    ArrayList<String> search(String field, String text);
 //
@@ -10,5 +10,4 @@ public interface NewsDao {
 //
 //    int getNewsFromADay(String siteName, String date);
 
-    void executeUpdate(String query);
 }

@@ -1,145 +1,172 @@
-package ir.sahab.nimbo.moama.newstrendfinder.database.news;
-
-import com.mysql.jdbc.exceptions.jdbc4.MySQLIntegrityConstraintViolationException;
-import ir.sahab.nimbo.moama.newstrendfinder.database.C3P0DataSource;
-import org.apache.log4j.Logger;
-
-import java.sql.*;
-
-public class NewsDaoImp implements NewsDao {
-    private static Logger logger = null;
-    private Connection databaseConnector;
-    private C3P0DataSource dataSource;
-
-    public NewsDaoImp(String database) {
-        logger = Logger.getLogger(NewsDao.class);
-        dataSource = C3P0DataSource.getInstance(database);
-    }
-
-    @Override
-    public boolean addNews(News news) {
-        try {
-            databaseConnector = dataSource.getConnection();
-            PreparedStatement databaseStatement = databaseConnector.prepareStatement("insert into News(title, date, link, content, siteId, NewsId) values(?, ?, ?, ?, ?, ?);");
-            databaseStatement.setString(1, news.getTitle());
-            databaseStatement.setTimestamp(2, new Timestamp(news.getDate().getTime()));
-            databaseStatement.setString(3, news.getLink());
-            databaseStatement.setString(4, news.getContent());
-            databaseStatement.setInt(5, news.getSiteId());
-            databaseStatement.setInt(6, news.getNewsId());
-            databaseStatement.executeUpdate();
-            databaseConnector.close();
-        } catch (MySQLIntegrityConstraintViolationException e) {
-            return false;
-        } catch (SQLException e) {
-            logger.error("Error! Couldn't add news to the database", e);
-        } finally {
-            if (databaseConnector != null) {
-                try {
-                    databaseConnector.close();
-                } catch (SQLException e) {
-                }
-            }
-        }
-        return true;
-    }
-
-//    @Override
-//    public ArrayList<String> search(String field, String text) {
-//        try {
-//            databaseConnector = dataSource.getConnection();
-//            ArrayList<String> result = new ArrayList<>();
-//            PreparedStatement databaseStatement = databaseConnector.prepareStatement("select * from News where " + field + " like ?;");
-//            databaseStatement.setString(1, "%" + text + "%");
-//            ResultSet queryResult = databaseStatement.executeQuery();
-//            while (queryResult.next()) {
-//                result.add(queryResult.getString("title") + "\n and the link is: " + queryResult.getString("link"));
-//            }
-//            databaseConnector.close();
-//            return result;
-//        } catch (SQLException e) {
-//            logger.error("Error! Search on news table failed", e);
-//        } finally {
-//            if (databaseConnector != null) {
-//                try {
-//                    databaseConnector.close();
-//                } catch (SQLException e) {
-////                    System.out.println(e.getMessage());
-//                }
-//            }
-//        }
-//        return null;
+//package ir.sahab.nimbo.moama.newstrendfinder.database.news;
+//import ir.sahab.nimbo.moama.newstrendfinder.ElasticDao;
+//
+//import org.apache.http.HttpHost;
+//import org.apache.log4j.Logger;
+//import org.elasticsearch.action.bulk.BulkRequest;
+//import org.elasticsearch.action.bulk.BulkResponse;
+//import org.elasticsearch.action.index.IndexRequest;
+//import org.elasticsearch.action.search.SearchRequest;
+//import org.elasticsearch.action.search.SearchResponse;
+//import org.elasticsearch.client.RestClient;
+//import org.elasticsearch.client.RestHighLevelClient;
+//import org.elasticsearch.common.unit.TimeValue;
+//import org.elasticsearch.common.xcontent.XContentBuilder;
+//import org.elasticsearch.common.xcontent.XContentFactory;
+//import org.elasticsearch.index.query.BoolQueryBuilder;
+//import org.elasticsearch.index.query.QueryBuilders;
+//import org.elasticsearch.search.SearchHit;
+//import org.elasticsearch.search.builder.SearchSourceBuilder;
+//
+//import java.io.IOException;
+//import java.util.*;
+//import java.util.concurrent.TimeUnit;
+//
+//public class NewsDaoImp implements NewsDao {
+//    private static int elasticFlushSizeLimit = 2;
+//    private static int elasticFlushNumberLimit = 200;
+//    private RestHighLevelClient client;
+//    private String index;
+//    private Logger errorLogger = Logger.getLogger("error");
+//    private IndexRequest indexRequest;
+//    private BulkRequest bulkRequest;
+//    private static int added = 0;
+//    private static final Integer sync = 0;
+//
+//    public NewsDaoImp(String index) {
+//        this.index = index;
+//        client = new RestHighLevelClient(
+//                RestClient.builder(
+//                        new HttpHost("94.23.214.93", 9200, "http")));
+//        indexRequest = new IndexRequest(index, "_doc");
+//        bulkRequest = new BulkRequest();
+//
 //    }
 //
 //    @Override
-//    public ArrayList<String> getLatestNews(String siteName) {
-//        ArrayList<String> titles = new ArrayList<>();
+//    public void put(News news){
 //        try {
-//            databaseConnector = dataSource.getConnection();
-//            PreparedStatement databaseStatement = databaseConnector.prepareStatement("select * from News where siteId = ? order by date desc limit 10;");
-//            databaseStatement.setInt(1, siteName.hashCode());
-//            ResultSet resultSet = databaseStatement.executeQuery();
-//            while (resultSet.next()) {
-//                titles.add(resultSet.getString("title") + "\n and the link is: " + resultSet.getString("link"));
+//            XContentBuilder builder = XContentFactory.jsonBuilder();
+//            try {
+//                builder.startObject();
+//                {
+//                    builder.field("newsLink", news.getLink());
+//                    builder.field("newsTitle", news.getTitle());
+//                    builder.field("newsDate", news.getDate().toString());
+//                    builder.field("newsContent", news.getContent());
+//                }
+//                builder.endObject();
+//                indexRequest.source(builder);
+//                bulkRequest.add(indexRequest);
+//                indexRequest = new IndexRequest(index, "_doc");
+//                added++;
+//            } catch (IOException e) {
+//                errorLogger.error("ERROR! couldn't add " + news.getLink() + " to elastic");
 //            }
-//            databaseConnector.close();
-//        } catch (SQLException e) {
-//            logger.error("Error! Couldn't fetch top 10 news!", e);
-//        } finally {
-//            if (databaseConnector != null) {
-//                try {
-//                    databaseConnector.close();
-//                } catch (SQLException e) {
-////                    System.out.println(e.getMessage());
+//            if (bulkRequest.estimatedSizeInBytes() / 1000_000 >= elasticFlushSizeLimit ||
+//                    bulkRequest.numberOfActions() >= elasticFlushNumberLimit) {
+//                synchronized (sync) {
+//                    BulkResponse bulkResponse = client.bulk(bulkRequest);
+//                    bulkRequest = new BulkRequest();
+////                    Metrics.numberOfPagesAddedToElastic = added;
 //                }
 //            }
+//        } catch (IOException e) {
+//            errorLogger.error("ERROR! Couldn't add the document for " + news.getLink());
 //        }
-//        if (titles.isEmpty())
-//            titles.add("couldn't find any record");
-//        return titles;
 //    }
 //
-//    @Override
-//    public int getNewsFromADay(String siteName, String date) {
-//        int count = 0;
-//        try {
-//            databaseConnector = dataSource.getConnection();
-//            Calendar cal = Calendar.getInstance();
-//            SimpleDateFormat standardFormat = new SimpleDateFormat("yyyy-MM-dd");
-//            cal.setTime(standardFormat.parse(date));
-//            cal.add(Calendar.DATE, 1);
-//            String lastDay = standardFormat.format(cal.getTime());
-//            PreparedStatement databaseStatement = databaseConnector.prepareStatement("select count(*)from News where siteId = ? and date > ? and date < ?;");
-//            databaseStatement.setInt(1, siteName.hashCode());
-//            databaseStatement.setString(2, date);
-//            databaseStatement.setString(3, lastDay);
-//            ResultSet resultSet = databaseStatement.executeQuery();
-//            while (resultSet.next()) {
-//                count = resultSet.getInt(1);
-//            }
-//            databaseConnector.close();
-//        } catch (SQLException | ParseException e) {
-//            logger.error("Error! Couldn't get news on the specific dates", e);
-//        } finally {
-//            if (databaseConnector != null) {
-//                try {
-//                    databaseConnector.close();
-//                } catch (SQLException e) {
-////                    System.out.println(e.getMessage());
-//                }
+//
+//    public Map<String, Float> search(ArrayList<String> necessaryWords, ArrayList<String> preferredWords, ArrayList<String> forbiddenWords) {
+//        Map<String, Float> results = new HashMap<>();
+//        SearchRequest searchRequest = new SearchRequest(index);
+//        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+//        searchRequest.types("_doc");
+//        SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
+//        searchRequest.source(searchSourceBuilder);
+//        BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
+//        for(String necessaryWord:necessaryWords) {
+//            boolQueryBuilder.must(QueryBuilders.matchQuery("pageLink", necessaryWord));
+//        }
+//        for(String preferredWord:preferredWords) {
+//            boolQueryBuilder.should(QueryBuilders.matchQuery("pageText", preferredWord));
+//        }
+//        for(String forbiddenWord:forbiddenWords) {
+//            boolQueryBuilder.mustNot(QueryBuilders.matchQuery("pageText", forbiddenWord));
+//        }
+//        sourceBuilder.query(boolQueryBuilder);
+//        sourceBuilder.from(0);
+//        sourceBuilder.size(20);
+//        sourceBuilder.timeout(new TimeValue(5, TimeUnit.SECONDS));
+//        searchRequest.source(sourceBuilder);
+//        SearchResponse searchResponse = null;
+//        boolean searchStatus = false;
+//        while (!searchStatus) {
+//            try {
+//                searchResponse = client.search(searchRequest);
+//                searchStatus = true;
+//            } catch (IOException e) {
+//                System.out.println("Elastic connection timed out! Trying again...");
+//                searchStatus = false;
 //            }
 //        }
-//        return count;
+//        SearchHit[] hits = searchResponse.getHits().getHits();
+//        int i = 1;
+//        for (SearchHit hit : hits) {
+//            Map<String, Object> sourceAsMap = hit.getSourceAsMap();
+//            results.put((String) sourceAsMap.get("pageLink"), hit.getScore());
+//        }
+//        return sortByValues(results);
 //    }
-
-    @Override
-    public void executeUpdate(String query) {
-        databaseConnector = dataSource.getConnection();
-        try {
-            Statement databaseStatement = databaseConnector.createStatement();
-            databaseStatement.executeUpdate(query);
-        } catch (SQLException e) {
-            logger.error("Error! Query not executable!", e);
-        }
-    }
-}
+//
+//    private static Map<String, Float> sortByValues(Map<String, Float> map) {
+//        List<Map.Entry<String, Float>> list = new LinkedList<>(map.entrySet());
+//        list.sort(new Compare());
+//        Map<String, Float> sortedHashMap = new LinkedHashMap<>();
+//        for (Map.Entry<String, Float> entry : list) {
+//            sortedHashMap.put(entry.getKey(), entry.getValue());
+//        }
+//        return sortedHashMap;
+//
+//    }
+//
+//    public Map<String, Float> findSimilar(String text) {
+//        Map<String, Float> results = new HashMap<>();
+//        SearchRequest searchRequest = new SearchRequest();
+//        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+//        String[] fields = {"pageText"};
+//        String[] texts = {text};
+//        searchSourceBuilder.query(QueryBuilders.moreLikeThisQuery(fields, texts, null).minTermFreq(1));
+//        searchSourceBuilder.size(20);
+//        searchRequest.source(searchSourceBuilder);
+//        SearchResponse searchResponse = null;
+//        boolean searchStatus = false;
+//        while (!searchStatus) {
+//            try {
+//                searchResponse = client.search(searchRequest);
+//                searchStatus = true;
+//            } catch (IOException e) {
+//                System.out.println("Elastic connection timed out! Trying again...");
+//                searchStatus = false;
+//            }
+//        }
+//        SearchHit[] hits = searchResponse.getHits().getHits();
+//        int i = 1;
+//        for (SearchHit hit : hits) {
+//            Map<String, Object> sourceAsMap = hit.getSourceAsMap();
+//            results.put((String) sourceAsMap.get("pageLink"), hit.getScore());
+//        }
+//        return sortByValues(results);
+//    }
+//
+//}
+//
+//
+//class NewsCompare implements Comparator{
+//
+//    @Override
+//    public int compare(Object o1, Object o2) {
+//        return ((Comparable) ((Map.Entry) (o2)).getValue())
+//                .compareTo(((Map.Entry) (o1)).getValue());
+//    }
+//}

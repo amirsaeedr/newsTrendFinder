@@ -2,29 +2,22 @@ package ir.sahab.nimbo.moama.newstrendfinder;
 
 
 import ir.sahab.nimbo.moama.newstrendfinder.database.news.News;
-import ir.sahab.nimbo.moama.newstrendfinder.metrics.Metrics;
 import org.apache.http.HttpHost;
 import org.apache.log4j.Logger;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
-import org.elasticsearch.action.get.GetRequest;
-import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.index.search.stats.SearchStats;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
-import org.elasticsearch.search.fetch.FetchSearchResult;
-import org.elasticsearch.search.fetch.subphase.FetchSourceContext;
 
 import java.io.IOException;
 import java.util.*;
@@ -48,10 +41,9 @@ public class ElasticDao {
                         new HttpHost("94.23.214.93", 9200, "http")));
         indexRequest = new IndexRequest(index, "_doc");
         bulkRequest = new BulkRequest();
-
     }
 
-    public void put(News news){
+    public void put(News news) {
         try {
             XContentBuilder builder = XContentFactory.jsonBuilder();
             try {
@@ -61,7 +53,6 @@ public class ElasticDao {
                     builder.field("newsTitle", news.getTitle());
                     builder.field("newsDate", news.getDate().toString());
                     builder.field("newsContent", news.getContent());
-                    builder.field("newsSite", news.getSiteId());
                 }
                 builder.endObject();
                 indexRequest.source(builder);
@@ -76,7 +67,6 @@ public class ElasticDao {
                 synchronized (sync) {
                     BulkResponse bulkResponse = client.bulk(bulkRequest);
                     bulkRequest = new BulkRequest();
-                    Metrics.numberOfPagesAddedToElastic = added;
                 }
             }
         } catch (IOException e) {
@@ -93,13 +83,13 @@ public class ElasticDao {
         SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
         searchRequest.source(searchSourceBuilder);
         BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
-        for(String necessaryWord:necessaryWords) {
+        for (String necessaryWord : necessaryWords) {
             boolQueryBuilder.must(QueryBuilders.matchQuery("pageLink", necessaryWord));
         }
-        for(String preferredWord:preferredWords) {
+        for (String preferredWord : preferredWords) {
             boolQueryBuilder.should(QueryBuilders.matchQuery("pageText", preferredWord));
         }
-        for(String forbiddenWord:forbiddenWords) {
+        for (String forbiddenWord : forbiddenWords) {
             boolQueryBuilder.mustNot(QueryBuilders.matchQuery("pageText", forbiddenWord));
         }
         sourceBuilder.query(boolQueryBuilder);
@@ -151,8 +141,7 @@ public class ElasticDao {
         return sortByValues(results);
     }
 
-    private void runSearch(SearchResponse searchResponse, boolean searchStatus, SearchRequest searchRequest)
-    {
+    private void runSearch(SearchResponse searchResponse, boolean searchStatus, SearchRequest searchRequest) {
         while (!searchStatus) {
             try {
                 searchResponse = client.search(searchRequest);
@@ -163,11 +152,9 @@ public class ElasticDao {
             }
         }
     }
-
 }
 
-
-class Compare implements Comparator{
+class Compare implements Comparator {
 
     @Override
     public int compare(Object o1, Object o2) {
