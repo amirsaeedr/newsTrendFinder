@@ -2,22 +2,29 @@ package ir.sahab.nimbo.moama.newstrendfinder;
 
 
 import ir.sahab.nimbo.moama.newstrendfinder.database.news.News;
+import ir.sahab.nimbo.moama.newstrendfinder.metrics.Metrics;
 import org.apache.http.HttpHost;
 import org.apache.log4j.Logger;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
+import org.elasticsearch.action.get.GetRequest;
+import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.index.search.stats.SearchStats;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.elasticsearch.search.fetch.FetchSearchResult;
+import org.elasticsearch.search.fetch.subphase.FetchSourceContext;
 
 import java.io.IOException;
 import java.util.*;
@@ -69,7 +76,7 @@ public class ElasticDao {
                 synchronized (sync) {
                     BulkResponse bulkResponse = client.bulk(bulkRequest);
                     bulkRequest = new BulkRequest();
-//                    Metrics.numberOfPagesAddedToElastic = added;
+                    Metrics.numberOfPagesAddedToElastic = added;
                 }
             }
         } catch (IOException e) {
@@ -102,15 +109,7 @@ public class ElasticDao {
         searchRequest.source(sourceBuilder);
         SearchResponse searchResponse = null;
         boolean searchStatus = false;
-        while (!searchStatus) {
-            try {
-                searchResponse = client.search(searchRequest);
-                searchStatus = true;
-            } catch (IOException e) {
-                System.out.println("Elastic connection timed out! Trying again...");
-                searchStatus = false;
-            }
-        }
+        runSearch(searchResponse, searchStatus, searchRequest);
         SearchHit[] hits = searchResponse.getHits().getHits();
         int i = 1;
         for (SearchHit hit : hits) {
@@ -142,6 +141,18 @@ public class ElasticDao {
         searchRequest.source(searchSourceBuilder);
         SearchResponse searchResponse = null;
         boolean searchStatus = false;
+        runSearch(searchResponse, searchStatus, searchRequest);
+        SearchHit[] hits = searchResponse.getHits().getHits();
+        int i = 1;
+        for (SearchHit hit : hits) {
+            Map<String, Object> sourceAsMap = hit.getSourceAsMap();
+            results.put((String) sourceAsMap.get("pageLink"), hit.getScore());
+        }
+        return sortByValues(results);
+    }
+
+    private void runSearch(SearchResponse searchResponse, boolean searchStatus, SearchRequest searchRequest)
+    {
         while (!searchStatus) {
             try {
                 searchResponse = client.search(searchRequest);
@@ -151,13 +162,6 @@ public class ElasticDao {
                 searchStatus = false;
             }
         }
-        SearchHit[] hits = searchResponse.getHits().getHits();
-        int i = 1;
-        for (SearchHit hit : hits) {
-            Map<String, Object> sourceAsMap = hit.getSourceAsMap();
-            results.put((String) sourceAsMap.get("pageLink"), hit.getScore());
-        }
-        return sortByValues(results);
     }
 
 }
