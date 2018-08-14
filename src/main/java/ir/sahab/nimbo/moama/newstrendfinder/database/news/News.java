@@ -91,8 +91,6 @@ public class News {
             return new News(this);
         }
 
-        // TODO: 7/16/18 Find a better way for ' stuff
-
         public Builder title(String title) {
             this.title = title.replace("'", ";");
             return this;
